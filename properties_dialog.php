@@ -41,6 +41,12 @@ Loc::loadMessages(__FILE__);
 					'ACTIVITY_DOCUMENT_CHOOSE_FILE'
 				) ?></a>
 		</div>
+		<?= \CBPDocument::ShowParameterField(
+			'int',
+			'INPUT_hand',
+			CBPDocument::IsExpression($current['INPUT']) ? $current['INPUT'] : '',
+			['size' => 30]
+		) ?>
 	</td>
 </tr>
 
@@ -75,6 +81,12 @@ Loc::loadMessages(__FILE__);
 					'ACTIVITY_DOCUMENT_CHOOSE_FOLDER'
 				) ?></a>
 		</div>
+		<?= \CBPDocument::ShowParameterField(
+			'int',
+			'OUTPUT_hand',
+			CBPDocument::IsExpression($current['OUTPUT']) ? $current['OUTPUT'] : '',
+			['size' => 30]
+		) ?>
 	</td>
 </tr>
 
