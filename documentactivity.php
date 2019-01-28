@@ -12,6 +12,7 @@ use Bitrix\Crm\LeadTable;
 use Bitrix\Iblock\ElementTable;
 use Bitrix\Iblock\IblockTable;
 use Bitrix\Iblock\PropertyEnumerationTable;
+use Bitrix\Iblock\PropertyTable;
 use Bitrix\Main\Application;
 use Bitrix\Main\Entity\Query;
 use Bitrix\Main\Loader;
@@ -103,6 +104,7 @@ class CBPDocumentActivity extends \CBPActivity
 
 		$this->getIblock();
 		if ($this->iblock) {
+			$this->getAllProperty();
 			$this->getProperty();
 		}
 
@@ -154,6 +156,10 @@ class CBPDocumentActivity extends \CBPActivity
 				continue;
 			}
 
+			if (isset($this->fields['DOCUMENT']['ALL_PROPERTY'][$prop['CODE']])) {
+				unset($this->fields['DOCUMENT']['ALL_PROPERTY'][$prop['CODE']]);
+			}
+
 			if ($prop['LIST'] === 'L') {
 				$prop['VALUE'] = $this->getEnum($prop['VALUE']);
 			}
@@ -177,7 +183,7 @@ class CBPDocumentActivity extends \CBPActivity
 					{
 						$uns = \unserialize($prop['VALUE'], ['allowed_classes' => false]);
 						if (!empty($uns['TEXT'])) {
-							$prop['VALUE'] = $uns['TEXT'];
+							$prop['VALUE'] = \strip_tags($uns['TEXT']);
 						} else {
 							$prop['VALUE'] = null;
 						}
@@ -200,6 +206,8 @@ class CBPDocumentActivity extends \CBPActivity
 					break;
 			}
 		}
+
+		unset($prop);
 
 	}
 
@@ -404,6 +412,26 @@ class CBPDocumentActivity extends \CBPActivity
 	}
 
 	/**
+	 * @throws \Bitrix\Main\ArgumentException
+	 * @throws \Bitrix\Main\ObjectPropertyException
+	 * @throws \Bitrix\Main\SystemException
+	 */
+	protected function getAllProperty()
+	{
+
+		$properties = PropertyTable::getList(
+			[
+				'select' => ['CODE'],
+				'filter' => Query::filter()->where('IBLOCK_ID', $this->iblock)
+			]
+		);
+
+		while ($property = $properties->fetch()) {
+			$this->fields['DOCUMENT']['ALL_PROPERTY'][$property['CODE']] = '';
+		}
+	}
+
+	/**
 	 * @TODO можно сделать поддержку множественных свойств
 	 *
 	 * @throws \Bitrix\Main\ArgumentException
@@ -426,6 +454,12 @@ class CBPDocumentActivity extends \CBPActivity
 		)->fetchAll();
 	}
 
+	/**
+	 * @return array|void
+	 * @throws \Bitrix\Main\ArgumentException
+	 * @throws \Bitrix\Main\ObjectPropertyException
+	 * @throws \Bitrix\Main\SystemException
+	 */
 	protected function getVariables()
 	{
 
@@ -551,6 +585,18 @@ class CBPDocumentActivity extends \CBPActivity
 
 		$runtime = CBPRuntime::GetRuntime();
 
+		if (empty($current['INPUT'])
+		    && isset($current['INPUT_hand'])
+		    && CBPDocument::IsExpression($current['INPUT_hand'])) {
+			$current['INPUT'] = $current['INPUT_hand'];
+		}
+
+		if (empty($current['OUTPUT'])
+		    && isset($current['OUTPUT_hand'])
+		    && CBPDocument::IsExpression($current['OUTPUT_hand'])) {
+			$current['OUTPUT'] = $current['OUTPUT_hand'];
+		}
+
 		return $runtime->ExecuteResourceFile(
 			__FILE__,
 			'properties_dialog.php',
@@ -587,6 +633,18 @@ class CBPDocumentActivity extends \CBPActivity
 		$arErrors = [];
 
 		$runtime = CBPRuntime::GetRuntime();
+
+		if (empty($current['INPUT'])
+		    && isset($current['INPUT_hand'])
+		    && CBPDocument::IsExpression($current['INPUT_hand'])) {
+			$current['INPUT'] = $current['INPUT_hand'];
+		}
+
+		if (empty($current['OUTPUT'])
+		    && isset($current['OUTPUT_hand'])
+		    && CBPDocument::IsExpression($current['OUTPUT_hand'])) {
+			$current['OUTPUT'] = $current['OUTPUT_hand'];
+		}
 
 		if (empty($current['INPUT'])) {
 			$arErrors[] = array(
@@ -632,12 +690,12 @@ class CBPDocumentActivity extends \CBPActivity
 	protected function generateDoc()
 	{
 
-		$file = \Bitrix\Disk\File::loadById($this->arProperties['INPUT']);
+		$file = \Bitrix\Disk\File::loadById($this->INPUT);
 		if (empty($file)) {
 			return;
 		}
 
-		$folder = \Bitrix\Disk\Folder::loadById($this->arProperties['OUTPUT']);
+		$folder = \Bitrix\Disk\Folder::loadById($this->OUTPUT);
 		if (empty($folder)) {
 			return;
 		}
@@ -653,6 +711,11 @@ class CBPDocumentActivity extends \CBPActivity
 		foreach ($this->fields['DOCUMENT']['PROPERTY'] as $prop) {
 
 			$doc->setValue('Document:PROPERTY_' . $prop['CODE'], $prop['VALUE']);
+		}
+
+		foreach ($this->fields['DOCUMENT']['ALL_PROPERTY'] as $code => $val) {
+
+			$doc->setValue('Document:PROPERTY_' . $code, $val);
 		}
 
 		$fileName = 'BP-' . $this->GetWorkflowInstanceId() . '.docx';
